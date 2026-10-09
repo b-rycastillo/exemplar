@@ -371,7 +371,3 @@ For issues and questions:
 - Full test coverage
 - CI/CD pipeline setup
 - Health check endpoint
-
----
-
-**Go Version:** 1.21+
