@@ -3,6 +3,10 @@ name: Testing Pipeline
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -57,5 +61,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'main.yml',
-              ref: 'test'
+              ref: 'master'
             })
