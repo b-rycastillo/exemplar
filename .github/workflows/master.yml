@@ -1,7 +1,7 @@
 name: Master Release
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       commit_sha:
         description: Exact tested commit promoted to master
@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: master-release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Build and Publish Release
@@ -18,6 +22,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Verify dispatch branch and commit
+        env:
+          EXPECTED_REF: refs/heads/master
+          ACTUAL_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+          VALIDATED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          test "$ACTUAL_REF" = "$EXPECTED_REF"
+          test "$DISPATCH_SHA" = "$VALIDATED_SHA"
       - name: Checkout validated master commit
         uses: actions/checkout@v4
         with:
@@ -51,7 +64,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VALIDATED_SHA: ${{ inputs.commit_sha }}
-          RELEASE_TAG: v${{ github.run_number }}-${{ github.run_attempt }}
+          RELEASE_TAG: v${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           gh release create "$RELEASE_TAG" dist/* \
             --target "$VALIDATED_SHA" \
