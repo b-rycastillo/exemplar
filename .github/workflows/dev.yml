@@ -10,7 +10,7 @@ on:
     types: [opened, synchronize, closed]
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -40,11 +40,21 @@ jobs:
       - name: Build application
         run: go build -v -o exemplar ./cmd
 
+      - name: Merge to test branch
+        if: success()
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git fetch origin development test
+          git checkout test
+          git merge origin/development --no-edit
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git test
+
       - name: Trigger test workflow
-        if: success() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged))
+        if: success()
         run: |
           curl -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/test.yml/dispatches \
-            -d '{"ref":"development"}'
+            -d '{"ref":"test"}'

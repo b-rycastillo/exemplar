@@ -372,7 +372,3 @@ For issues and questions:
 - CI/CD pipeline setup
 - Health check endpoint
 
----
-
-**Go Version:** 1.21+
-**Maintained by:** Development Team

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -55,8 +55,15 @@ jobs:
       - name: Trigger production workflow
         if: success()
         run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git fetch origin test master
+          git checkout master
+          git merge origin/test --no-edit
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git master
+          
           curl -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/main.yml/dispatches \
-            -d '{"ref":"test"}'
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/master.yml/dispatches \
+            -d '{"ref":"master"}'
