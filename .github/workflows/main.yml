@@ -63,42 +63,13 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Merge test to master
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { data: pullRequests } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: 'test',
-              base: 'master',
-              state: 'open'
-            });
-            
-            if (pullRequests.length > 0) {
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pullRequests[0].number,
-                merge_method: 'squash'
-              });
-            } else {
-              // Create PR if doesn't exist
-              const { data: pr } = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: 'Merge test to master - v${{ github.run_number }}',
-                head: 'test',
-                base: 'master',
-                body: 'Automated merge from test branch after successful testing'
-              });
-              
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.number,
-                merge_method: 'squash'
-              });
-            }
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git fetch origin master test
+          git checkout master
+          git merge origin/test --no-edit
+          git push origin master
 
       - name: Deployment complete
         run: echo "✅ Application deployed to production successfully!"
