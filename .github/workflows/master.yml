@@ -1,75 +1,59 @@
-name: Production Deployment
+name: Master Release
 
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      commit_sha:
+        description: Exact tested commit promoted to master
+        required: true
+        type: string
 
 permissions:
-  contents: write
-  actions: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  deploy:
+  release:
+    name: Build and Publish Release
     runs-on: ubuntu-latest
-    name: Deploy to Production
-    environment:
-      name: production
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
+      - name: Checkout validated master commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Verify master matches the tested commit
+        env:
+          VALIDATED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          git fetch origin master
+          test "$(git rev-parse origin/master)" = "$VALIDATED_SHA"
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Run final tests
+        run: go test -race ./...
 
-      - name: Run all tests
-        run: go test -v -race ./...
-
-      - name: Build release binary
+      - name: Build release binaries
         run: |
           mkdir -p dist
           GOOS=linux GOARCH=amd64 go build -v -o dist/exemplar-linux-amd64 ./cmd
           GOOS=darwin GOARCH=amd64 go build -v -o dist/exemplar-darwin-amd64 ./cmd
           GOOS=windows GOARCH=amd64 go build -v -o dist/exemplar-windows-amd64.exe ./cmd
 
-      - name: Create release
-        uses: actions/create-release@v1
+      - name: Publish release with all binaries
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
-          body: |
-            Automated production release from main branch.
-            
-            Changes: ${{ github.event.head_commit.message }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Linux binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/exemplar-linux-amd64
-          asset_name: exemplar-linux-amd64
-          asset_content_type: application/octet-stream
-
-      - name: Merge test to master
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VALIDATED_SHA: ${{ inputs.commit_sha }}
+          RELEASE_TAG: v${{ github.run_number }}-${{ github.run_attempt }}
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git fetch origin master test
-          git checkout master
-          git merge origin/test --no-edit
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git master
-
-      - name: Deployment complete
-        run: echo "✅ Application deployed to production successfully!"
+          gh release create "$RELEASE_TAG" dist/* \
+            --target "$VALIDATED_SHA" \
+            --title "Release $RELEASE_TAG" \
+            --notes "Automated release of tested master commit $VALIDATED_SHA."

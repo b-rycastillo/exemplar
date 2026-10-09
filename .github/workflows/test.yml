@@ -1,69 +1,104 @@
-name: Testing Pipeline
+name: Test Validation and Promotion
 
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      commit_sha:
+        description: Exact development commit promoted to test
+        required: true
+        type: string
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 jobs:
-  test:
+  validate:
+    name: Validate Test Build
     runs-on: ubuntu-latest
-    name: Comprehensive Testing
     steps:
-      - name: Checkout code
+      - name: Checkout promoted commit
         uses: actions/checkout@v4
         with:
-          ref: test
+          ref: ${{ inputs.commit_sha }}
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
 
       - name: Download dependencies
         run: go mod download
 
-      - name: Run unit tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+      - name: Run tests with race detection and coverage
+        run: go test -race -coverprofile=coverage.out ./...
 
-      - name: Check coverage
+      - name: Require at least 70 percent coverage
         run: |
-          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Code coverage: $coverage%"
-          if (( $(echo "$coverage < 70" | bc -l) )); then
-            echo "Coverage below 70%"
-            exit 1
-          fi
+          go tool cover -func=coverage.out | awk '
+            $1 == "total:" {
+              coverage = $3 + 0
+              print "Code coverage: " coverage "%"
+              found = 1
+              if (coverage < 70) exit 1
+            }
+            END { if (!found) exit 1 }
+          '
 
-      - name: Run integration tests
-        run: go test -v -run Integration ./...
+      - name: Run API integration tests
+        run: go test -v -count=1 ./internal/handler/...
 
       - name: Build application
         run: go build -v -o exemplar ./cmd
 
-      - name: Test binary execution
-        run: timeout 5 ./exemplar || true
+      - name: Verify health endpoint
+        run: |
+          PORT=8080 ./exemplar > server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://localhost:8080/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat server.log
+          exit 1
 
-      - name: Upload coverage to artifacts
+      - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.out
+          if-no-files-found: error
 
-      - name: Trigger production workflow
-        if: success()
+  promote-master:
+    name: Promote Test to Master
+    needs: validate
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Fast-forward master to validated test commit
+        env:
+          VALIDATED_SHA: ${{ inputs.commit_sha }}
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
           git fetch origin test master
-          git checkout master
-          git merge origin/test --no-edit
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git master
-          
-          curl -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/master.yml/dispatches \
-            -d '{"ref":"master"}'
+          test "$(git rev-parse origin/test)" = "$VALIDATED_SHA"
+          git checkout -B master origin/master
+          git merge --ff-only "$VALIDATED_SHA"
+          git push origin HEAD:refs/heads/master
+
+  release:
+    name: Publish Master Release
+    needs: promote-master
+    permissions:
+      contents: write
+    uses: ./.github/workflows/master.yml
+    with:
+      commit_sha: ${{ inputs.commit_sha }}

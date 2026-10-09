@@ -1,60 +1,70 @@
-name: Development Pipeline
+name: Development CI and Promotion
 
 on:
   push:
-    branches:
-      - development
+    branches: [development]
   pull_request:
-    branches:
-      - development
-    types: [opened, synchronize, closed]
+    branches: [development]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
+
+# Serialize the full promotion chain; never cancel a running promotion.
+concurrency:
+  group: development-${{ github.event_name }}-${{ github.event.pull_request.number || 'promotion' }}
+  cancel-in-progress: false
 
 jobs:
-  test:
+  validate:
+    name: Run Tests and Build
     runs-on: ubuntu-latest
-    name: Run Tests
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
 
       - name: Download dependencies
         run: go mod download
 
-      - name: Run unit tests
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.out
+      - name: Run tests with race detection
+        run: go test -race ./...
 
       - name: Build application
         run: go build -v -o exemplar ./cmd
 
-      - name: Merge to test branch
-        if: success()
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git fetch origin development test
-          git checkout test
-          git merge origin/development --no-edit
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git test
+  promote-test:
+    name: Promote Development to Test
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
-      - name: Trigger test workflow
-        if: success()
+      - name: Fast-forward test to validated commit
+        env:
+          VALIDATED_SHA: ${{ github.sha }}
         run: |
-          curl -X POST \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/test.yml/dispatches \
-            -d '{"ref":"test"}'
+          git fetch origin test
+          git checkout -B test origin/test
+          git merge --ff-only "$VALIDATED_SHA"
+          git push origin HEAD:refs/heads/test
+
+  testing:
+    name: Test and Promote to Master
+    needs: promote-test
+    permissions:
+      contents: write
+    uses: ./.github/workflows/test.yml
+    with:
+      commit_sha: ${{ github.sha }}

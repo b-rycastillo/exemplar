@@ -15,7 +15,7 @@ We are committed to providing a welcoming and inspiring community for all. Pleas
 5. Test your changes: `make test`
 6. Commit with clear messages: `git commit -m "Add your feature"`
 7. Push to your fork: `git push origin feature/your-feature-name`
-8. Create a Pull Request
+8. Create a Pull Request targeting `development`
 
 ## Development Setup
 
@@ -121,7 +121,7 @@ Types:
 4. Ensure all tests pass
 5. Request review from maintainers
 6. Address review comments
-7. After approval, your PR will be merged automatically by CI/CD
+7. After approval and successful PR checks, merge your PR into `development`. CI/CD validates the merged commit, promotes it to `test`, then to `master`, and publishes release binaries.
 
 ## Reporting Issues
 
