@@ -204,9 +204,9 @@ air
 
 The project includes GitHub Actions workflows for automated testing and deployment across three environments:
 
-- **Development (development)** - Runs on every push to develop branch
-- **Testing (test)** - Runs on successful completion in dev, tests all changes
-- **Production (master)** - Runs on successful completion in test, deploys to production
+- **development** - Runs on every push to developnebt branch
+- **test** - Runs on successful completion in dev, tests all changes
+- **master** - Runs on successful completion in test, deploys to production
 
 ### Workflows
 
@@ -215,12 +215,12 @@ The project includes GitHub Actions workflows for automated testing and deployme
 - Runs: Unit tests, integration tests
 - On success: Triggers test workflow
 
-#### 2. Testing Pipeline (.github/workflows/test.yml)
+#### 2. Test Pipeline (.github/workflows/test.yml)
 - Triggers on: Successful completion of dev pipeline
 - Runs: Full test suite, code quality checks
 - On success: Triggers production workflow
 
-#### 3. Production Pipeline (.github/workflows/main.yml)
+#### 3. Master Pipeline (.github/workflows/main.yml)
 - Triggers on: Successful completion of test pipeline
 - Runs: Final verification, builds release binary
 - On success: Deploys to production
