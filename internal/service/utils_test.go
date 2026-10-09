@@ -59,3 +59,23 @@ func TestGenerateID(t *testing.T) {
 		t.Logf("Generated two different IDs (expected for different calls): %s, %s", id1, id2)
 	}
 }
+
+func TestIsValidEmailEdgeCases(t *testing.T) {
+	tests := []struct {
+		email    string
+		expected bool
+	}{
+		{"user+tag@example.co.uk", true},
+		{"user.name@example.com", true},
+		{"user_name@example.com", true},
+		{"user name@example.com", false},
+		{"user@@example.com", false},
+	}
+
+	for _, tt := range tests {
+		result := IsValidEmail(tt.email)
+		if result != tt.expected {
+			t.Errorf("IsValidEmail(%q) = %v, want %v", tt.email, result, tt.expected)
+		}
+	}
+}

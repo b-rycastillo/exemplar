@@ -356,10 +356,6 @@ PORT=8080 go run ./cmd/main.go
 lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill -9
 ```
 
-## License
-
-MIT License - see LICENSE file for details
-
 ## Support
 
 For issues and questions:
