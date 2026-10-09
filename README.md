@@ -202,52 +202,26 @@ air
 
 ## Continuous Deployment
 
-The project includes GitHub Actions workflows for automated testing and deployment across three environments:
+The branch flow is `task-001 → development → test → master`.
 
-- **development** - Runs on every push to developnebt branch
-- **test** - Runs on successful completion in dev, tests all changes
-- **master** - Runs on successful completion in test, deploys to production
+1. Open a task branch PR targeting `development`. **Pull Request CI** (`.github/workflows/pr.yml`) runs only **Run Tests and Build**. Promotion jobs are absent from this workflow.
+2. After review and successful checks, merge the PR into `development`. **Development CI and Promotion** (`.github/workflows/dev.yml`) validates the merged commit and fast-forwards `test` to that commit.
+3. The reusable test workflow (`.github/workflows/test.yml`) runs coverage, API integration tests, a build, and a health check. Once these pass, it fast-forwards `master` to the same commit.
+4. The reusable master workflow (`.github/workflows/master.yml`) runs final checks and publishes Linux, macOS, and Windows release binaries from that commit.
 
-### Workflows
+### Finding the testing and release jobs
 
-#### 1. Development Pipeline (.github/workflows/dev.yml)
-- Triggers on: Push to `develop` branch
-- Runs: Unit tests, integration tests
-- On success: Triggers test workflow
+The Actions tab shows a PR validation run and, after merging, a development push run. The testing and release workflows execute as nested jobs inside the development push run; they do not create separate runs for the `test` or `master` branches. Open that run to see **Validate Test Build**, **Promote Test to Master**, and **Build and Publish Release**.
 
-#### 2. Test Pipeline (.github/workflows/test.yml)
-- Triggers on: Successful completion of dev pipeline
-- Runs: Full test suite, code quality checks
-- On success: Triggers production workflow
+This pipeline publishes GitHub Releases. A production server deployment requires an additional deployment step.
 
-#### 3. Master Pipeline (.github/workflows/main.yml)
-- Triggers on: Successful completion of test pipeline
-- Runs: Final verification, builds release binary
-- On success: Deploys to production
+### Repository setup
 
-### Setting Up CI/CD
-
-1. **Push to develop branch:**
-```bash
-git checkout develop
-git add .
-git commit -m "New feature"
-git push origin develop
-```
-
-2. **Monitor CI/CD:**
-Visit the "Actions" tab in your GitHub repository to see workflow progress.
-
-3. **Merge to main:**
-Once all workflows pass, your code is automatically merged to main and deployed.
-
-### Environment Variables
-
-Configure these in GitHub repository settings under Secrets:
-
-- `DEPLOY_KEY` - SSH key for production deployment
-- `SERVER_ADDR` - Production server address
-- `API_PORT` - Port for production API
+- Create `development`, `test`, and `master` with shared history. Promotions use fast-forward merges and fail if the destination has diverged.
+- Require **Run Tests and Build** for PRs into `development`. Task PRs are merged after review; the workflow promotes the resulting development commit automatically.
+- Allow workflow contents writes and ensure branch rules permit the workflow actor to push to `test` and `master`.
+- Restrict direct writes to `test` and `master` to the promotion process. The current pipeline uses `GITHUB_TOKEN` and needs no deployment secrets.
+- Development push runs serialize the full promotion chain. New PR commits cancel outdated PR validation runs.
 
 ## Performance & Scalability
 
