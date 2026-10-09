@@ -66,11 +66,10 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
           git fetch origin master test
           git checkout master
           git merge origin/test --no-edit
-          git push origin master
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git master
 
       - name: Deployment complete
         run: echo "✅ Application deployed to production successfully!"
