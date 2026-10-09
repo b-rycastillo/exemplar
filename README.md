@@ -375,4 +375,3 @@ For issues and questions:
 ---
 
 **Go Version:** 1.21+
-**Maintained by:** Development Team
