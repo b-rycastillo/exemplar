@@ -1,0 +1,45 @@
+name: Development Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run Tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.out
+
+      - name: Build application
+        run: go build -v -o exemplar ./cmd
+
+      - name: Trigger test workflow
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'test.yml',
+              ref: 'develop'
+            })

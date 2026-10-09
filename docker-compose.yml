@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  exemplar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    container_name: exemplar-app
+    restart: unless-stopped
+
+volumes:
+  exemplar_data:
+    driver: local

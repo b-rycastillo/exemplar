@@ -1,0 +1,9 @@
+.DS_Store
+*.out
+exemplar
+dist/
+*.exe
+*.dll
+*.so
+.air.toml
+coverage.html

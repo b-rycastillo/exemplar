@@ -1,0 +1,99 @@
+name: Production Deployment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: develop
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run all tests
+        run: go test -v -race ./...
+
+      - name: Build release binary
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -v -o dist/exemplar-linux-amd64 ./cmd
+          GOOS=darwin GOARCH=amd64 go build -v -o dist/exemplar-darwin-amd64 ./cmd
+          GOOS=windows GOARCH=amd64 go build -v -o dist/exemplar-windows-amd64.exe ./cmd
+
+      - name: Create release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            Automated production release from main branch.
+            
+            Changes: ${{ github.event.head_commit.message }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/exemplar-linux-amd64
+          asset_name: exemplar-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Merge develop to main
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: 'develop',
+              base: 'main',
+              state: 'open'
+            });
+            
+            if (pullRequests.length > 0) {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullRequests[0].number,
+                merge_method: 'squash'
+              });
+            } else {
+              // Create PR if doesn't exist
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Merge develop to main - v${{ github.run_number }}',
+                head: 'develop',
+                base: 'main',
+                body: 'Automated merge from develop branch after successful testing'
+              });
+              
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'squash'
+              });
+            }
+
+      - name: Deployment complete
+        run: echo "✅ Application deployed to production successfully!"

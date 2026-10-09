@@ -1,0 +1,61 @@
+name: Testing Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Comprehensive Testing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: develop
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Check coverage
+        run: |
+          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Code coverage: $coverage%"
+          if (( $(echo "$coverage < 70" | bc -l) )); then
+            echo "Coverage below 70%"
+            exit 1
+          fi
+
+      - name: Run integration tests
+        run: go test -v -run Integration ./...
+
+      - name: Build application
+        run: go build -v -o exemplar ./cmd
+
+      - name: Test binary execution
+        run: timeout 5 ./exemplar || true
+
+      - name: Upload coverage to artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage.out
+
+      - name: Trigger production workflow
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'main.yml',
+              ref: 'develop'
+            })

@@ -1,0 +1,4 @@
+# GitHub CODEOWNERS file
+# This file controls which users are required for code reviews
+
+* @owner
