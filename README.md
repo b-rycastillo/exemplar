@@ -206,12 +206,16 @@ The branch flow is `task-001 → development → test → master`.
 
 1. Open a task branch PR targeting `development`. **Pull Request CI** (`.github/workflows/pr.yml`) runs only **Run Tests and Build**. Promotion jobs are absent from this workflow.
 2. After review and successful checks, merge the PR into `development`. **Development CI and Promotion** (`.github/workflows/dev.yml`) validates the merged commit and fast-forwards `test` to that commit.
-3. The reusable test workflow (`.github/workflows/test.yml`) runs coverage, API integration tests, a build, and a health check. Once these pass, it fast-forwards `master` to the same commit.
-4. The reusable master workflow (`.github/workflows/master.yml`) runs final checks and publishes Linux, macOS, and Windows release binaries from that commit.
+3. The separately dispatched test workflow (`.github/workflows/test.yml`) runs coverage, API integration tests, a build, and a health check. Once these pass, it fast-forwards `master` to the same commit.
+4. The separately dispatched master workflow (`.github/workflows/master.yml`) runs final checks and publishes Linux, macOS, and Windows release binaries from that commit.
 
 ### Finding the testing and release jobs
 
-The Actions tab shows a PR validation run and, after merging, a development push run. The testing and release workflows execute as nested jobs inside the development push run; they do not create separate runs for the `test` or `master` branches. Open that run to see **Validate Test Build**, **Promote Test to Master**, and **Build and Publish Release**.
+The Actions tab shows separate **Pull Request CI**, **Development CI and Promotion** (on `development`), **Test Validation and Promotion** (on `test`), and **Master Release** (on `master`) runs. After promoting a branch, the preceding workflow explicitly dispatches the next workflow using `GITHUB_TOKEN`; bot pushes do not trigger ordinary push workflows. Dispatch failures fail the promotion job.
+
+Each dispatch passes the exact validated commit SHA. Test and master runs reject dispatches on the wrong branch or with a different commit. If a newer promotion advances a branch before an older run can dispatch or promote, the stale run fails rather than releasing unvalidated code. Rerun failed promotion jobs to retry a failed dispatch.
+
+The dispatchable workflow files must exist on the repository's default branch for GitHub to accept dispatches. When introducing this change, first make these definitions available on the default branch, then merge the changes into `development`.
 
 This pipeline publishes GitHub Releases. A production server deployment requires an additional deployment step.
 
@@ -219,9 +223,9 @@ This pipeline publishes GitHub Releases. A production server deployment requires
 
 - Create `development`, `test`, and `master` with shared history. Promotions use fast-forward merges and fail if the destination has diverged.
 - Require **Run Tests and Build** for PRs into `development`. Task PRs are merged after review; the workflow promotes the resulting development commit automatically.
-- Allow workflow contents writes and ensure branch rules permit the workflow actor to push to `test` and `master`.
+- Allow workflow contents and Actions writes and ensure branch rules permit the workflow actor to push to `test` and `master`.
 - Restrict direct writes to `test` and `master` to the promotion process. The current pipeline uses `GITHUB_TOKEN` and needs no deployment secrets.
-- Development push runs serialize the full promotion chain. New PR commits cancel outdated PR validation runs.
+- Each branch workflow serializes its own stage; separate workflow runs can overlap. New PR commits cancel outdated PR validation runs.
 
 ## Performance & Scalability
 

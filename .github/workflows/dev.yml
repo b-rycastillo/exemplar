@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 
-# Serialize the full promotion chain; never cancel a running promotion.
+# Serialize development validation and promotion.
 concurrency:
   group: development-promotion
   cancel-in-progress: false
@@ -40,6 +40,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/development'
     permissions:
       contents: write
+      actions: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout validated commit
@@ -57,11 +58,9 @@ jobs:
           git merge --ff-only "$VALIDATED_SHA"
           git push origin HEAD:refs/heads/test
 
-  testing:
-    name: Test and Promote to Master
-    needs: promote-test
-    permissions:
-      contents: write
-    uses: ./.github/workflows/test.yml
-    with:
-      commit_sha: ${{ github.sha }}
+      - name: Trigger Test workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VALIDATED_SHA: ${{ github.sha }}
+        run: gh workflow run test.yml --ref test -f commit_sha="$VALIDATED_SHA"
