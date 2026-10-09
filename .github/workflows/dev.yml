@@ -3,7 +3,7 @@ name: Development Pipeline
 on:
   push:
     branches:
-      - develop
+      - development
 
 jobs:
   test:
@@ -41,5 +41,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'test.yml',
-              ref: 'develop'
+              ref: 'development'
             })

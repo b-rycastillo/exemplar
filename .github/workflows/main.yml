@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: develop
+          ref: master
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -57,15 +57,15 @@ jobs:
           asset_name: exemplar-linux-amd64
           asset_content_type: application/octet-stream
 
-      - name: Merge develop to main
+      - name: Merge test to master
         uses: actions/github-script@v6
         with:
           script: |
             const { data: pullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              head: 'develop',
-              base: 'main',
+              head: 'test',
+              base: 'master',
               state: 'open'
             });
             
@@ -81,10 +81,10 @@ jobs:
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: 'Merge develop to main - v${{ github.run_number }}',
-                head: 'develop',
-                base: 'main',
-                body: 'Automated merge from develop branch after successful testing'
+                title: 'Merge test to master - v${{ github.run_number }}',
+                head: 'test',
+                base: 'master',
+                body: 'Automated merge from test branch after successful testing'
               });
               
               await github.rest.pulls.merge({
