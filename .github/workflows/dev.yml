@@ -3,16 +3,13 @@ name: Development CI and Promotion
 on:
   push:
     branches: [development]
-  pull_request:
-    branches: [development]
-    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
 
 # Serialize the full promotion chain; never cancel a running promotion.
 concurrency:
-  group: development-${{ github.event_name }}-${{ github.event.pull_request.number || 'promotion' }}
+  group: development-promotion
   cancel-in-progress: false
 
 jobs:
