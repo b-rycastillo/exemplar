@@ -374,6 +374,5 @@ For issues and questions:
 
 ---
 
-**Last Updated:** October 2026
 **Go Version:** 1.21+
 **Maintained by:** Development Team
