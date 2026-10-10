@@ -209,6 +209,38 @@ The branch flow is `task-001 → development → test → master`.
 3. The separately dispatched test workflow (`.github/workflows/test.yml`) runs coverage, API integration tests, a build, and a health check. Once these pass, it fast-forwards `master` to the same commit.
 4. The separately dispatched master workflow (`.github/workflows/master.yml`) runs final checks and publishes Linux, macOS, and Windows release binaries from that commit.
 
+### Release versions
+
+Each successful **Master Release** run publishes a version after the commit reaches `master` and final tests and builds pass. The first release is `v0.0.1`; subsequent commits increment the patch number (`v0.0.2`, `v0.0.3`, etc.). Retrying the same released commit reuses its version and refreshes its assets.
+
+For an intentional major update, include a line `Release-Bump: major` in a commit message or the merge commit message. The next release increments the major number and resets minor and patch (`v0.0.2 → v1.0.0`). Use `Release-Bump: minor` for a minor release (`v0.0.2 → v0.1.0`). These markers must be preserved in the merged Git history; a PR description alone does not count. A major marker takes precedence over a minor marker.
+
+Version numbers use `major.minor.patch`. A normal automatic release needs no marker and increments patch (`v0.0.1 → v0.0.2`). A minor increment means `v0.0.2 → v0.1.0`, while a major increment means `v0.0.2 → v1.0.0`. Always retain all three numeric components. Numbers are not capped at 9: `v9.0.0 → v10.0.0`, and `v0.0.9 → v0.0.10`. See [Semantic Versioning](https://semver.org/) for the standard meanings: compatible fixes are patch changes, compatible new features are minor changes, and incompatible API changes are major changes.
+
+Manual master workflow runs also offer a `version_bump` choice, defaulting to `patch`. The validated SHA and master branch checks still apply. Release tags are the version counter, so retain the new `vx.y.z` tags.
+
+#### Commit examples
+
+A patch release requires only a normal commit message, with no `Release-Bump` marker (`v0.0.1 → v0.0.2`):
+
+```bash
+git commit -m "fix: correct email validation"
+```
+
+For a minor release (`v0.0.2 → v0.1.0`), add the marker as a separate paragraph:
+
+```bash
+git commit -m "feat: add user search endpoint" -m "Release-Bump: minor"
+```
+
+For a major release (`v0.0.2 → v1.0.0`):
+
+```bash
+git commit -m "feat: change the user response format" -m "Release-Bump: major"
+```
+
+The second `-m` creates a message body separated by a blank line. The `fix:` and `feat:` prefixes describe the change; the version script uses the `Release-Bump` line to choose minor or major. If you squash a PR, preserve that line in the final squash commit message. The examples assume changes are already staged. Versions are created by successful master release runs, not by creating commits locally.
+
 ### Finding the testing and release jobs
 
 The Actions tab shows separate **Pull Request CI**, **Development CI and Promotion** (on `development`), **Test Validation and Promotion** (on `test`), and **Master Release** (on `master`) runs. After promoting a branch, the preceding workflow explicitly dispatches the next workflow using `GITHUB_TOKEN`; bot pushes do not trigger ordinary push workflows. Dispatch failures fail the promotion job.
