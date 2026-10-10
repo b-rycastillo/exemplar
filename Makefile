@@ -2,7 +2,7 @@
 
 # Variables
 BINARY_NAME=exemplar
-GO_VERSION=1.21
+GO_VERSION=1.27.2
 PORT?=3000
 
 help: ## Display this help screen

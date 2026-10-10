@@ -24,7 +24,7 @@ concurrency:
 jobs:
   release:
     name: Build and Publish Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -38,7 +38,7 @@ jobs:
           test "$ACTUAL_REF" = "$EXPECTED_REF"
           test "$DISPATCH_SHA" = "$VALIDATED_SHA"
       - name: Checkout validated master commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
@@ -51,7 +51,7 @@ jobs:
           test "$(git rev-parse origin/master)" = "$VALIDATED_SHA"
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 

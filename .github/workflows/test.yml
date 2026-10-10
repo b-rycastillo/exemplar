@@ -18,7 +18,7 @@ concurrency:
 jobs:
   validate:
     name: Validate Test Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Verify dispatch branch and commit
         env:
@@ -30,12 +30,12 @@ jobs:
           test "$ACTUAL_REF" = "$EXPECTED_REF"
           test "$DISPATCH_SHA" = "$VALIDATED_SHA"
       - name: Checkout promoted commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha }}
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
@@ -78,7 +78,7 @@ jobs:
           exit 1
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.out
@@ -90,10 +90,10 @@ jobs:
     permissions:
       contents: write
       actions: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout validated commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0

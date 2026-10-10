@@ -36,7 +36,7 @@ exemplar/
 
 ## Prerequisites
 
-- Go 1.21 or higher
+- Go 1.27.2 or higher
 - Git
 - Make (optional, for using Makefile commands)
 
@@ -204,7 +204,7 @@ air
 
 The branch flow is `task-001 → development → test → master`.
 
-1. Open a task branch PR targeting `development`. **Pull Request CI** (`.github/workflows/pr.yml`) runs only **Run Tests and Build**. Promotion jobs are absent from this workflow.
+1. Open a task branch PR targeting `development`. **Pull Request CI** (`.github/workflows/pr.yml`) runs **Run Tests and Build**. Promotion jobs are absent from this workflow.
 2. After review and successful checks, merge the PR into `development`. **Development CI and Promotion** (`.github/workflows/dev.yml`) validates the merged commit and fast-forwards `test` to that commit.
 3. The separately dispatched test workflow (`.github/workflows/test.yml`) runs coverage, API integration tests, a build, and a health check. Once these pass, it fast-forwards `master` to the same commit.
 4. The separately dispatched master workflow (`.github/workflows/master.yml`) runs final checks and publishes Linux, macOS, and Windows release binaries from that commit.
@@ -250,6 +250,8 @@ Each dispatch passes the exact validated commit SHA. Test and master runs reject
 The dispatchable workflow files must exist on the repository's default branch for GitHub to accept dispatches. When introducing this change, first make these definitions available on the default branch, then merge the changes into `development`.
 
 This pipeline publishes GitHub Releases. A production server deployment requires an additional deployment step.
+
+CI uses Node 24 actions (`actions/checkout@v7` and `actions/setup-go@v7`) and pins runners to `ubuntu-24.04` to avoid automatic operating system migrations. CI reads Go 1.27.2 from `go.mod`; the Docker builder uses the same version. Go 1.27.2 is the minimum supported version, including for modules importing this repository.
 
 ### Repository setup
 
