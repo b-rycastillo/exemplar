@@ -7,6 +7,12 @@ on:
         description: Exact tested commit promoted to master
         required: true
         type: string
+      version_bump:
+        description: Version increment (normal pipeline runs use patch)
+        required: true
+        default: patch
+        type: choice
+        options: [patch, minor, major]
 
 permissions:
   contents: read
@@ -59,13 +65,25 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -v -o dist/exemplar-darwin-amd64 ./cmd
           GOOS=windows GOARCH=amd64 go build -v -o dist/exemplar-windows-amd64.exe ./cmd
 
+      - name: Choose release version
+        id: version
+        env:
+          VERSION_BUMP: ${{ inputs.version_bump }}
+        run: python3 .github/scripts/release_version.py
+
       - name: Publish release with all binaries
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VALIDATED_SHA: ${{ inputs.commit_sha }}
-          RELEASE_TAG: v${{ github.run_id }}-${{ github.run_attempt }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
+          # Reuse the version when retrying the same commit and repair asset uploads.
+          gh api "repos/$GH_REPO/releases" --paginate --jq '.[].tag_name' > /tmp/release-tags
+          if grep -Fxq "$RELEASE_TAG" /tmp/release-tags; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+            exit 0
+          fi
           gh release create "$RELEASE_TAG" dist/* \
             --target "$VALIDATED_SHA" \
             --title "Release $RELEASE_TAG" \
